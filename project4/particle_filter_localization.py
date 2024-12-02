@@ -36,7 +36,7 @@ class ParticleFilterLocalization(Node):
         self.map_width, self.map_height, self.resolution = 0, 0, 0
         self.num_particles = 300
         self.particles = MarkerArray()
-
+        self.particle_weights = {}
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         # Synchronize robot twist and compass data
@@ -80,7 +80,7 @@ class ParticleFilterLocalization(Node):
 
     def init_particles(self):
         particle_list = MarkerArray()
-
+        
         for i in range(self.num_particles):
             # Particle setup
             particle = Marker()
@@ -89,6 +89,7 @@ class ParticleFilterLocalization(Node):
             particle.id = i
             particle.type = Marker.SPHERE
             particle.action = Marker.ADD
+            self.particle_weights[particle.id] = 1.0 # each starts with initial weight of 1
 
             # Random position
             particle.pose.position.x = uniform(0, self.map_width) * self.resolution

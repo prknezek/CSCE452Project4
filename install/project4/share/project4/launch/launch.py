@@ -7,7 +7,7 @@ def generate_launch_description():
     # Declare a launch argument for the map_file parameter
     map_file_arg = DeclareLaunchArgument(
         'map_file',
-        default_value='/home/prknezek/VSCode/CSCE752_Robotics/Project4/cave.world',
+        default_value='project4_data/cave.world',
         description='Path to the map file'
     )
 
