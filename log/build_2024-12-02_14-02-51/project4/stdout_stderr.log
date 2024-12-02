@@ -1,0 +1,45 @@
+running egg_info
+creating build/project4/project4.egg-info
+writing build/project4/project4.egg-info/PKG-INFO
+writing dependency_links to build/project4/project4.egg-info/dependency_links.txt
+writing entry points to build/project4/project4.egg-info/entry_points.txt
+writing requirements to build/project4/project4.egg-info/requires.txt
+writing top-level names to build/project4/project4.egg-info/top_level.txt
+writing manifest file 'build/project4/project4.egg-info/SOURCES.txt'
+reading manifest file 'build/project4/project4.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'build/project4/project4.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build
+creating /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib
+creating /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4
+copying project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4
+copying project4/occupancy_grid_publisher.py -> /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4
+copying project4/__init__.py -> /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4
+running install
+running install_lib
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4
+copying /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4
+copying /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4/occupancy_grid_publisher.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4
+copying /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4/__init__.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4
+byte-compiling /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4/particle_filter_localization.py to particle_filter_localization.cpython-310.pyc
+byte-compiling /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4/occupancy_grid_publisher.py to occupancy_grid_publisher.cpython-310.pyc
+byte-compiling /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/ament_index
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/ament_index/resource_index
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/ament_index/resource_index/packages
+copying resource/project4 -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/ament_index/resource_index/packages
+copying package.xml -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/project4
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/project4/launch
+copying launch/launch.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/share/project4/launch
+creating /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+copying project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+copying project4/occupancy_grid_publisher.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+running install_egg_info
+Copying build/project4/project4.egg-info to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4-0.0.0-py3.10.egg-info
+running install_scripts
+Installing occupancy_grid_publisher script to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+Installing particle_filter_localization script to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+writing list of installed files to '/home/grant/ros2_ws/src/CSCE435Project4/build/project4/install.log'
