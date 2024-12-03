@@ -1,0 +1,27 @@
+[0.573s] Invoking command in '/home/grant/ros2_ws/src/CSCE435Project4': PYTHONPATH=/home/grant/ros2_ws/src/CSCE435Project4/build/project4/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/project4 build --build-base /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build install --record /home/grant/ros2_ws/src/CSCE435Project4/build/project4/install.log --single-version-externally-managed install_data
+[0.775s] running egg_info
+[0.775s] writing build/project4/project4.egg-info/PKG-INFO
+[0.775s] writing dependency_links to build/project4/project4.egg-info/dependency_links.txt
+[0.775s] writing entry points to build/project4/project4.egg-info/entry_points.txt
+[0.776s] writing requirements to build/project4/project4.egg-info/requires.txt
+[0.776s] writing top-level names to build/project4/project4.egg-info/top_level.txt
+[0.777s] reading manifest file 'build/project4/project4.egg-info/SOURCES.txt'
+[0.777s] adding license file 'LICENSE'
+[0.778s] writing manifest file 'build/project4/project4.egg-info/SOURCES.txt'
+[0.778s] running build
+[0.778s] running build_py
+[0.778s] copying project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4
+[0.779s] running install
+[0.779s] running install_lib
+[0.780s] copying /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build/lib/project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4
+[0.780s] byte-compiling /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4/particle_filter_localization.py to particle_filter_localization.cpython-310.pyc
+[0.782s] running install_data
+[0.782s] copying project4/particle_filter_localization.py -> /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+[0.782s] running install_egg_info
+[0.784s] removing '/home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4-0.0.0-py3.10.egg-info' (and everything under it)
+[0.784s] Copying build/project4/project4.egg-info to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages/project4-0.0.0-py3.10.egg-info
+[0.785s] running install_scripts
+[0.802s] Installing occupancy_grid_publisher script to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+[0.802s] Installing particle_filter_localization script to /home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/project4
+[0.802s] writing list of installed files to '/home/grant/ros2_ws/src/CSCE435Project4/build/project4/install.log'
+[0.823s] Invoked command in '/home/grant/ros2_ws/src/CSCE435Project4' returned '0': PYTHONPATH=/home/grant/ros2_ws/src/CSCE435Project4/build/project4/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/grant/ros2_ws/src/CSCE435Project4/install/project4/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/project4 build --build-base /home/grant/ros2_ws/src/CSCE435Project4/build/project4/build install --record /home/grant/ros2_ws/src/CSCE435Project4/build/project4/install.log --single-version-externally-managed install_data

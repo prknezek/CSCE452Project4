@@ -28,6 +28,44 @@ def euler_from_quaternion(q):
     yaw = math.atan2(siny_cosp, cosy_cosp)
     return yaw
 
+def classify_light_dark(value):
+    """
+    checks the sensor value as light or dark and calculates the probability.
+    
+    Args:
+        value (int or float): The sensor value to classify.
+    
+    Returns:
+        tuple: (Light/Dark, probability)
+               Light/Dark: True (light) or False (dark)
+               probability: Probability of the classification.
+    """
+    #ranges for light, dark, overlap (min, max)
+    light_range = (101, 135)
+    dark_range = (122, 155)
+    overlap = (dark_range[0], light_range[1]) #makes more sense visually on a line chart
+    
+
+    if light_range[0] <= value <= light_range[1] and dark_range[0] <= value <= dark_range[1]:
+        #within the overlapping region, compute probabilities by comparing to which edge its closer to
+        light_prob = (light_range[1] - value) / (light_range[1] - overlap[0])
+        dark_prob = (value - dark_range[0]) / (overlap[1] - dark_range[0])
+        if light_prob > dark_prob:
+            return True, light_prob
+        else:
+            return False, dark_prob
+
+    #If not in overlap, classify based on ranges
+    elif light_range[0] <= value <= light_range[1]:
+        return True, 1.0
+    elif dark_range[0] <= value <= dark_range[1]:
+        return False, 1.0
+    else:
+        return "unknown", 0.0  #NaN and whatnot
+
+
+
+
 class ParticleFilterLocalization(Node):
     def __init__(self):
         super().__init__('particle_filter_localization')
@@ -36,7 +74,7 @@ class ParticleFilterLocalization(Node):
         self.map_width, self.map_height, self.resolution = 0, 0, 0
         self.num_particles = 300
         self.particles = MarkerArray()
-
+        self.particle_weights = {}
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         # Synchronize robot twist and compass data
@@ -46,6 +84,15 @@ class ParticleFilterLocalization(Node):
         # Publish particles
         self.particle_publisher = self.create_publisher(MarkerArray, '/particles', 10)
         self.timer = self.create_timer(0.2, self.publish_particles)
+        # test
+        sensor_value = 123
+        color, probability = classify_light_dark(sensor_value)
+        color_text = ""
+        if(color):
+            color_text = "Light"
+        else:
+            color_text = "Dark"
+        self.get_logger().info(f"Value: {sensor_value}, Color: {color_text}, Probability: {probability:.2f}")
 
     def map_callback(self, msg):
         # Initialize map information and particle array
@@ -80,7 +127,7 @@ class ParticleFilterLocalization(Node):
 
     def init_particles(self):
         particle_list = MarkerArray()
-
+        
         for i in range(self.num_particles):
             # Particle setup
             particle = Marker()
@@ -89,6 +136,7 @@ class ParticleFilterLocalization(Node):
             particle.id = i
             particle.type = Marker.SPHERE
             particle.action = Marker.ADD
+            self.particle_weights[particle.id] = 1.0 # each starts with initial weight of 1
 
             # Random position
             particle.pose.position.x = uniform(0, self.map_width) * self.resolution
