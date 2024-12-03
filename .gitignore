@@ -4,3 +4,5 @@
 build
 log
 install
+**/__pycache__/
+__pycache__
