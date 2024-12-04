@@ -6,8 +6,8 @@ from random import uniform
 from geometry_msgs.msg import Quaternion, Pose2D, Twist
 import math
 from example_interfaces.msg import Float32
-
 from example_interfaces.msg import UInt8
+import numpy as np
 
 def quaternion_from_euler(yaw, pitch=0, roll=0):
     """
@@ -64,6 +64,41 @@ def classify_light_dark(value):
     else:
         return "unknown", 0.0  #NaN and whatnot
 
+def is_particle_on_light_spot(particle, map_data, resolution, width, height):
+    """
+    Determines if each particle is on a light or dark spot.
+
+    Args:
+        particle 
+        map_data (list): The occupancy grid as a 1D list in reverse order.
+        resolution (float): The resolution of the map (size of each grid cell in world units).
+        width (int): The width of the grid in cells.
+        height (int): The height of the grid in cells.
+
+    Returns:
+        True/False for Light/Dark
+    """
+    
+    # Convert world coordinates to grid indices
+    grid_x = int(particle.pose.position.x / resolution)
+    grid_y = int(particle.pose.position.y / resolution)
+
+    # Ensure the indices are within the bounds of the map
+    if 0 <= grid_x < width and 0 <= grid_y < height:
+        # Reverse the Y-axis for correct indexing (1D map_data is in reverse order)
+        reversed_grid_y = (height - 1) - grid_y
+
+        # Compute the 1D index for the map data
+        index = reversed_grid_y * width + grid_x
+
+        # Check the occupancy value
+        occupancy_value = map_data[index]
+        if(occupancy_value == 0):
+            return True #light 0
+        else:
+            return False #dark 100
+    else:
+        return -1 #out of bounds
 
 
 
@@ -77,6 +112,7 @@ class ParticleFilterLocalization(Node):
         self.particles = MarkerArray()
         self.particle_weights = {}
         self.map_data = OccupancyGrid()
+        self.last_sensor_value = 0
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         self.floor_sensor_subscriber = self.create_subscription(UInt8, '/floor_sensor', self.floor_sensor_callback, 10)
@@ -96,15 +132,6 @@ class ParticleFilterLocalization(Node):
         self.est_pose_timer = self.create_timer(2.0, self.update_robot_guess)
         self.init_robot_marker()
 
-        # test
-        sensor_value = 123
-        color, probability = classify_light_dark(sensor_value)
-        color_text = ""
-        if(color):
-            color_text = "Light"
-        else:
-            color_text = "Dark"
-        self.get_logger().info(f"Value: {sensor_value}, Color: {color_text}, Probability: {probability:.2f}")
 
     def map_callback(self, msg):
         # Initialize map information and particle array
@@ -122,22 +149,32 @@ class ParticleFilterLocalization(Node):
         
         #convert UInt8 to int before passing
         sensor_value = floor_sensor_msg.data
-        
-        #check color of sensor
-        color, probability = classify_light_dark(sensor_value)
-        self.get_logger().info("floor_sensor_callback ----")
-        #check color of particles
-        if(self.map_data.data):
-            self.get_logger().info(f"map_data.data: {self.map_data.data}") #goes left to right from bottom to top
-            #if colors match
-                #increase weight by probability
-            #else
-                #decrease weight by probability
 
-            #if weight is < 1
-                #move particle to another particle's position with greater weight
-
+        #update last_sensor_value so that 
+        # forward proj. callback (motion_update) has a value for weight assignment
+        self.last_sensor_value = sensor_value
         
+
+
+
+
+    def resample_particles(particles, weights):
+        """
+        Resamples particles with replacement based on their weights.
+
+        Args:
+            particles (list): List of particles (e.g., states or positions).
+            weights (list): List of corresponding weights for each particle.
+        
+        Returns:
+            list: A new set of resampled particles.
+        """
+
+        # Resample particles based on their weights
+        resampled_particles = np.random.choice(particles, size=len(particles), replace=True, p=weights)
+
+        #convert numpy array back to a list
+        return list(resampled_particles)
 
 
 
@@ -162,6 +199,21 @@ class ParticleFilterLocalization(Node):
             # Add noise to orientation
             new_yaw = yaw + dtheta
             particle.pose.orientation = quaternion_from_euler(new_yaw)
+
+            #assign weights from last sensor reading
+            sensor_color, probability = classify_light_dark(self.last_sensor_value)
+            particle_color = is_particle_on_light_spot(particle, self.map_data.data, self.resolution, self.map_width, self.map_height)
+            if(sensor_color == particle_color):
+                #probability of being correct, always largest (i.e. 0.6)
+                self.particle_weights[particle.id] = probability 
+            else:
+                #probability of being wrong, inverse (i.e. [1 - 0.6] = 0.4)
+                self.particle_weights[particle.id] = 1 - probability 
+
+        # Normalize weights
+        total_weight = sum(self.particle_weights)
+        for particle in self.particles.markers:
+            self.particle_weights[particle.id] /= total_weight
 
     #NOTE: there's a chance we don't do this every compass update, but I think this is right
     def compass_callback(self, msg):
