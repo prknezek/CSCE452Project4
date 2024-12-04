@@ -5,7 +5,8 @@ from nav_msgs.msg import OccupancyGrid
 from random import uniform
 from geometry_msgs.msg import Quaternion, Pose2D, Twist
 import math
-from std_msgs.msg import Float32
+from example_interfaces.msg import Float32
+
 
 def quaternion_from_euler(yaw, pitch=0, roll=0):
     """
@@ -79,7 +80,7 @@ class ParticleFilterLocalization(Node):
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         # Synchronize robot twist and compass data
         self.cmd_vel_subscriber = self.create_subscription(Twist, '/cmd_vel', self.motion_update_callback, 10)
-        #self.compass_subscriber = self.create_subscription(Float32, '/compass', self.compass_callback, 10)
+        self.compass_subscriber = self.create_subscription(Float32, '/compass', self.compass_callback, 10)
 
         # Publish particles
         self.particle_publisher = self.create_publisher(MarkerArray, '/particles', 10)
@@ -133,6 +134,13 @@ class ParticleFilterLocalization(Node):
             # Add noise to orientation
             new_yaw = yaw + dtheta
             particle.pose.orientation = quaternion_from_euler(new_yaw)
+
+    #NOTE: there's a chance we don't do this every compass update, but I think this is right
+    def compass_callback(self, msg):
+        self.get_logger().info(f'COMP ASS MESSAGE: {msg}')
+        for particle in self.particles.markers:
+            particle.pose.orientation = quaternion_from_euler(msg.data)
+        
 
     #NOTE: if this isn't working well, we can replace it with weight avg. of particles
     #calculates most likely robot position and publishes it to map & topic
