@@ -3,10 +3,10 @@ from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
 from nav_msgs.msg import OccupancyGrid
 from random import uniform
-from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Quaternion, Pose2D, Twist
 import math
-from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32
+from example_interfaces.msg import Float32
+
 from example_interfaces.msg import UInt8
 
 def quaternion_from_euler(yaw, pitch=0, roll=0):
@@ -82,11 +82,20 @@ class ParticleFilterLocalization(Node):
         self.floor_sensor_subscriber = self.create_subscription(UInt8, '/floor_sensor', self.floor_sensor_callback, 10)
         # Synchronize robot twist and compass data
         self.cmd_vel_subscriber = self.create_subscription(Twist, '/cmd_vel', self.motion_update_callback, 10)
-        # self.compass_subscriber = self.create_subscription(Float32, '/compass', self.compass_callback, 10)
+        self.compass_subscriber = self.create_subscription(Float32, '/compass', self.compass_callback, 10)
 
         # Publish particles
         self.particle_publisher = self.create_publisher(MarkerArray, '/particles', 10)
         self.timer = self.create_timer(0.2, self.publish_particles)
+
+        #most likely robot marker/topic
+        self.robot_index = 0 #index of the particle we think is the robot
+        self.robot_marker = Marker()
+        self.robot_marker_publisher = self.create_publisher(Marker, '/robot_marker', 10)
+        self.est_pose_publisher = self.create_publisher(Pose2D, '/estimated_pose', 10)
+        self.est_pose_timer = self.create_timer(2.0, self.update_robot_guess)
+        self.init_robot_marker()
+
         # test
         sensor_value = 123
         color, probability = classify_light_dark(sensor_value)
@@ -153,6 +162,53 @@ class ParticleFilterLocalization(Node):
             # Add noise to orientation
             new_yaw = yaw + dtheta
             particle.pose.orientation = quaternion_from_euler(new_yaw)
+
+    #NOTE: there's a chance we don't do this every compass update, but I think this is right
+    def compass_callback(self, msg):
+        self.get_logger().info(f'COMP ASS MESSAGE: {msg}')
+        for particle in self.particles.markers:
+            particle.pose.orientation = quaternion_from_euler(msg.data)
+        
+
+    #NOTE: if this isn't working well, we can replace it with weight avg. of particles
+    #calculates most likely robot position and publishes it to map & topic
+    def update_robot_guess(self):
+        best_particle = None
+        best_pose = Pose2D()
+        max_weight = 0.0
+        for i, particle in enumerate(self.particles.markers):
+            curr_weight = self.particle_weights[i]
+            if curr_weight > max_weight:
+                max_weight = curr_weight
+                best_particle = particle
+                self.robot_index = i
+
+        if not best_particle:
+            return
+
+        ppose = best_particle.pose
+        best_pose.x = ppose.position.x
+        best_pose.y = ppose.position.y
+        eulers = euler_from_quaternion(ppose.orientation)
+        best_pose.theta = eulers
+        self.robot_marker.pose = ppose
+        self.robot_marker_publisher.publish(self.robot_marker)
+        self.est_pose_publisher.publish(best_pose)
+
+    def init_robot_marker(self):
+        mark = self.robot_marker
+        mark.header.frame_id = "map"
+        mark.header.stamp = self.get_clock().now().to_msg()
+        mark.id = 99999
+        mark.type = Marker.SPHERE
+        mark.action = Marker.ADD
+        mark.scale.x = .3
+        mark.scale.y = .3
+        mark.scale.z = .3
+        mark.color.r = 0.0
+        mark.color.g = 1.0
+        mark.color.b = 0.0
+        mark.color.a = 1.0
 
     def init_particles(self):
         particle_list = MarkerArray()
