@@ -7,7 +7,7 @@ from geometry_msgs.msg import Quaternion
 import math
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
-from example_interfaces.msg import Uint8
+from example_interfaces.msg import UInt8
 
 def quaternion_from_euler(yaw, pitch=0, roll=0):
     """
@@ -76,9 +76,10 @@ class ParticleFilterLocalization(Node):
         self.num_particles = 300
         self.particles = MarkerArray()
         self.particle_weights = {}
+        self.map_data = OccupancyGrid()
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
-        self.floor_sensor_subscriber = self.create_subscription(Uint8, 'floor_sensor', self.floor_sensor_callback, 10)
+        self.floor_sensor_subscriber = self.create_subscription(UInt8, '/floor_sensor', self.floor_sensor_callback, 10)
         # Synchronize robot twist and compass data
         self.cmd_vel_subscriber = self.create_subscription(Twist, '/cmd_vel', self.motion_update_callback, 10)
         # self.compass_subscriber = self.create_subscription(Float32, '/compass', self.compass_callback, 10)
@@ -103,19 +104,22 @@ class ParticleFilterLocalization(Node):
         self.resolution = msg.info.resolution
 
         if len(self.particles.markers) == 0:
-            self.map_data = msg.data #send map_data?
+            self.map_data = msg #send map_data?
             self.particles = self.init_particles()
 
     
     def floor_sensor_callback(self, floor_sensor_msg):
         #resampling callback
         
-        #check color of sensor
-        color, probability = classify_light_dark(floor_sensor_msg)
+        #convert UInt8 to int before passing
+        sensor_value = floor_sensor_msg.data
         
+        #check color of sensor
+        color, probability = classify_light_dark(sensor_value)
+        self.get_logger().info("floor_sensor_callback ----")
         #check color of particles
-        if(self.map_data):
-            self.get_logger().info(self.map_data[0])
+        if(self.map_data.data):
+            self.get_logger().info(f"map_data.data: {self.map_data.data}") #goes left to right from bottom to top
             #if colors match
                 #increase weight by probability
             #else
