@@ -1,3 +1,4 @@
+import copy
 import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
@@ -134,8 +135,11 @@ def resample_particles(particles, weights, num_part):
     resampled_particles = MarkerArray()
     
     #Use the resampled indices to fetch the actual particles and add them to the new MarkerArray
+    count = 0
     for i in resampled_indices:
-        resampled_particles.markers.append(particles.markers[i])
+        resampled_particles.markers.append(copy.deepcopy(particles.markers[i]))
+        resampled_particles.markers[count].id = count
+        count += 1
     
     return resampled_particles
 
