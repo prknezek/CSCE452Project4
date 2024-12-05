@@ -59,9 +59,9 @@ def classify_light_dark(value):
 
     #If not in overlap, classify based on ranges
     elif light_range[0] <= value <= light_range[1]:
-        return True, 1.0
+        return True, 0.9
     elif dark_range[0] <= value <= dark_range[1]:
-        return False, 1.0
+        return False, 0.9
     else:
         return "unknown", 0.0  #NaN and whatnot
 
@@ -80,17 +80,17 @@ def is_particle_on_light_spot(particle, map_data, resolution, width, height):
         True/False for Light/Dark
     """
     
-    # Convert world coordinates to grid indices
-    grid_x = int(particle.pose.position.x / resolution)
-    grid_y = int(particle.pose.position.y / resolution)
+    left, bottom, right, top = 0, 0, width * resolution, height * resolution
+    particle_x, particle_y = particle.pose.position.x, particle.pose.position.y
 
-    # Ensure the indices are within the bounds of the map
-    if 0 <= grid_x < width and 0 <= grid_y < height:
-        # Reverse the Y-axis for correct indexing (1D map_data is in reverse order)
-        reversed_grid_y = (height - 1) - grid_y
+    # In bounds
+    if particle_x >= left and particle_x <= right and particle_y >= bottom and particle_y <= top:       
+        # Convert world coordinates to grid indices
+        grid_x = int(particle_x / resolution)
+        grid_y = int(particle_y / resolution)
 
         # Compute the 1D index for the map data
-        index = reversed_grid_y * width + grid_x
+        index = grid_y * width + grid_x
 
         # Check the occupancy value
         occupancy_value = map_data[index]
@@ -174,13 +174,12 @@ class ParticleFilterLocalization(Node):
         self.robot_marker = Marker()
         self.robot_marker_publisher = self.create_publisher(Marker, '/robot_marker', 10)
         self.est_pose_publisher = self.create_publisher(Pose2D, '/estimated_pose', 10)
-        self.est_pose_timer = self.create_timer(2.0, self.update_robot_guess)
+        self.est_pose_timer = self.create_timer(0.5, self.update_robot_guess)
         self.init_robot_marker()
 
-
         #DEBUG
+        self.test_pub = self.create_publisher(MarkerArray, '/test_marker', 10)
         self.debug_point = [0,0,0]
-
 
     def map_callback(self, msg):
         # Initialize map information and particle array
@@ -191,6 +190,9 @@ class ParticleFilterLocalization(Node):
         if len(self.particles.markers) == 0:
             self.map_data = msg
             self.particles = self.init_particles()
+
+            # NOTE DEBUG for color testing
+            # self.fill_points_in_grid()
 
     
     def floor_sensor_callback(self, floor_sensor_msg):
@@ -205,18 +207,14 @@ class ParticleFilterLocalization(Node):
 
         #particle set replaced with resampled set
         if(self.init_particles_bool): # wait until initialization
-            self.particles = resample_particles(self.particles, self.particle_weights, self.num_particles)
-            #self.get_logger().info(f"first resampled particle: {self.particles.markers[0]}")
-        
-        
-        
+            self.particles = resample_particles(self.particles, self.particle_weights, self.num_particles)         
 
     def motion_update_callback(self, cmd_vel_msg):
         #debug
         self.debug_point[0] = self.debug_point[0] + cmd_vel_msg.linear.x
         self.debug_point[1] = self.debug_point[1] + cmd_vel_msg.linear.y
         self.debug_point[2] = self.debug_point[2] + cmd_vel_msg.linear.z
-        self.get_logger().info(f'POINT: {self.debug_point}')
+        # self.get_logger().info(f'POINT: {self.debug_point}')
 
         curr_time = self.get_clock().now()
         if self.last_movement_time:
@@ -251,30 +249,47 @@ class ParticleFilterLocalization(Node):
             #assign weights from last sensor reading
             sensor_color, probability = classify_light_dark(self.last_sensor_value)
             particle_color = is_particle_on_light_spot(particle, self.map_data.data, self.resolution, self.map_width, self.map_height)
+            
+            if particle_color == -1:
+                self.particle_weights[particle.id] = 0.0
+                particle.color.r = 1.0
+                particle.color.g = 0.0
+                particle.color.b = 0.0
+            elif particle_color:
+                particle.color.r = 1.0
+                particle.color.g = 1.0
+                particle.color.b = 0.0
+            else:
+                particle.color.r = 0.0
+                particle.color.g = 0.0
+                particle.color.b = 1.0
+
             if(sensor_color == particle_color):
                 #probability of being correct, always largest (i.e. 0.6)
                 self.particle_weights[particle.id] = probability 
             else:
                 #probability of being wrong, inverse (i.e. [1 - 0.6] = 0.4)
-                self.particle_weights[particle.id] = 1 - probability 
+                self.particle_weights[particle.id] = 1 - probability
 
-
-            #TODO: if particle is outside map, reduce exponentially
+            # if particle is outside map, reduce exponentially            
+            left, bottom, right, top = 0, 0, self.map_width * self.resolution, self.map_height * self.resolution
+            particle_x, particle_y = particle.pose.position.x, particle.pose.position.y
             TUNNEL_CONST = 2
-            if particle.pose.position.x > self.map_width:
-                diff = particle.pose.position.x - self.map_width
-                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
-            elif particle.pose.position.x < 0:
-                diff = -particle.pose.position.x
-                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+            diff = 0 # If particle is within bounds, diff will remain 0 and weight will not change (1 / e^(0 / 2) = 1 / e^0 = 1)
 
-            if particle.pose.position.y > self.map_height:
-                diff = particle.pose.position.y - self.map_height
-                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
-            elif particle.pose.position.y < 0:
-                diff = -particle.pose.position.y
-                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+            if particle_x < left:
+                diff = left - particle_x
+            elif particle_x > right:
+                diff = particle_x - right
 
+            self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+
+            if particle_y < bottom:
+                diff = bottom - particle_y
+            elif particle_y > top:
+                diff = particle_y - top                
+
+            self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
 
     #NOTE: there's a chance we don't do this every compass update, but I think this is right
     def compass_callback(self, msg):
@@ -362,6 +377,54 @@ class ParticleFilterLocalization(Node):
     
     def publish_particles(self):
         self.particle_publisher.publish(self.particles)
+
+    #NOTE: this is for debugging purposes
+    def fill_points_in_grid(self):
+        # Create a marker array to visualize the grid
+        marker_array = MarkerArray()
+        border = 1
+        counter = 0
+        for r in range(-border, self.map_height + border):
+            for c in range(-border, self.map_width + border):
+                # create a marker in the middle of each cell
+                marker = Marker()
+                marker.header.frame_id = "map"
+                marker.header.stamp = self.get_clock().now().to_msg()
+                marker.id = counter
+                counter += 1
+                marker.type = Marker.SPHERE
+                marker.action = Marker.ADD
+                marker.pose.position.x = c * self.resolution + self.resolution / 2
+                marker.pose.position.y = r * self.resolution + self.resolution / 2
+                marker.pose.position.z = 0.0
+                marker.pose.orientation = quaternion_from_euler(0, 0, 0)
+                marker.scale.x = 0.4
+                marker.scale.y = 0.4
+                marker.scale.z = 0.4
+                marker.color.a = 1.0
+                marker.color.r = 0.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
+
+                marker_array.markers.append(marker)
+        
+        # Test color of each marker 
+        for marker in marker_array.markers:
+            color = is_particle_on_light_spot(marker, self.map_data.data, self.resolution, self.map_width, self.map_height)
+            if color == -1:
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = 0.0
+            elif color:
+                marker.color.r = 1.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
+            else:
+                marker.color.r = 0.0
+                marker.color.g = 0.0
+                marker.color.b = 1.0
+
+        self.test_pub.publish(marker_array)
 
 def main(args=None):
     rclpy.init(args=args)
