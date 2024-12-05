@@ -157,6 +157,7 @@ class ParticleFilterLocalization(Node):
         self.map_data = OccupancyGrid()
         self.last_sensor_value = 0
         self.init_particles_bool = False
+        self.last_movement_time = None
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         self.floor_sensor_subscriber = self.create_subscription(UInt8, '/floor_sensor', self.floor_sensor_callback, 10)
@@ -217,14 +218,23 @@ class ParticleFilterLocalization(Node):
         self.debug_point[2] = self.debug_point[2] + cmd_vel_msg.linear.z
         self.get_logger().info(f'POINT: {self.debug_point}')
 
+        curr_time = self.get_clock().now()
+        if self.last_movement_time:
+            duration = curr_time - self.last_movement_time
+            duration = duration.nanoseconds / 10**9
+        else:
+            duration = 0.0
+
+        self.last_movement_time = curr_time
+
         for particle in self.particles.markers:
             # Extract yaw from the particle's quaternion
             yaw = euler_from_quaternion(particle.pose.orientation)
 
             # Add noise and compute local velocities
-            dx_local = cmd_vel_msg.linear.x + uniform(-0.1, 0.1)
-            dy_local = cmd_vel_msg.linear.y + uniform(-0.1, 0.1)
-            dtheta = cmd_vel_msg.angular.z + uniform(-0.01, 0.01)
+            dx_local = duration * (cmd_vel_msg.linear.x + uniform(-0.1, 0.1))
+            dy_local = duration * (cmd_vel_msg.linear.y + uniform(-0.1, 0.1))
+            dtheta = duration * (cmd_vel_msg.angular.z + uniform(-0.01, 0.01))
 
             # Transform to global frame
             dx_global = dx_local * math.cos(yaw) - dy_local * math.sin(yaw)
@@ -270,7 +280,6 @@ class ParticleFilterLocalization(Node):
     def compass_callback(self, msg):
         for particle in self.particles.markers:
             particle.pose.orientation = quaternion_from_euler(msg.data)
-        self.get_logger().info(f'COMPASS: {msg.data}')
         
 
     #NOTE: if this isn't working well, we can replace it with weight avg. of particles
