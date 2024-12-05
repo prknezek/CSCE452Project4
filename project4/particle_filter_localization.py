@@ -151,7 +151,7 @@ class ParticleFilterLocalization(Node):
 
         # Map and particle initialization
         self.map_width, self.map_height, self.resolution = 0, 0, 0
-        self.num_particles = 300
+        self.num_particles = 2000
         self.particles = MarkerArray()
         self.particle_weights = {}
         self.map_data = OccupancyGrid()
@@ -175,6 +175,10 @@ class ParticleFilterLocalization(Node):
         self.est_pose_publisher = self.create_publisher(Pose2D, '/estimated_pose', 10)
         self.est_pose_timer = self.create_timer(2.0, self.update_robot_guess)
         self.init_robot_marker()
+
+
+        #DEBUG
+        self.debug_point = [0,0,0]
 
 
     def map_callback(self, msg):
@@ -207,6 +211,12 @@ class ParticleFilterLocalization(Node):
         
 
     def motion_update_callback(self, cmd_vel_msg):
+        #debug
+        self.debug_point[0] = self.debug_point[0] + cmd_vel_msg.linear.x
+        self.debug_point[1] = self.debug_point[1] + cmd_vel_msg.linear.y
+        self.debug_point[2] = self.debug_point[2] + cmd_vel_msg.linear.z
+        self.get_logger().info(f'POINT: {self.debug_point}')
+
         for particle in self.particles.markers:
             # Extract yaw from the particle's quaternion
             yaw = euler_from_quaternion(particle.pose.orientation)
@@ -239,10 +249,28 @@ class ParticleFilterLocalization(Node):
                 self.particle_weights[particle.id] = 1 - probability 
 
 
+            #TODO: if particle is outside map, reduce exponentially
+            TUNNEL_CONST = 2
+            if particle.pose.position.x > self.map_width:
+                diff = particle.pose.position.x - self.map_width
+                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+            elif particle.pose.position.x < 0:
+                diff = -particle.pose.position.x
+                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+
+            if particle.pose.position.y > self.map_height:
+                diff = particle.pose.position.y - self.map_height
+                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+            elif particle.pose.position.y < 0:
+                diff = -particle.pose.position.y
+                self.particle_weights[particle.id] *= 1 / math.exp(diff / TUNNEL_CONST)
+
+
     #NOTE: there's a chance we don't do this every compass update, but I think this is right
     def compass_callback(self, msg):
         for particle in self.particles.markers:
             particle.pose.orientation = quaternion_from_euler(msg.data)
+        self.get_logger().info(f'COMPASS: {msg.data}')
         
 
     #NOTE: if this isn't working well, we can replace it with weight avg. of particles
