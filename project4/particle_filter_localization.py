@@ -100,6 +100,45 @@ def is_particle_on_light_spot(particle, map_data, resolution, width, height):
     else:
         return -1 #out of bounds
 
+def resample_particles(particles, weights, num_part):
+    """
+    Resamples particles with replacement based on their weights.
+
+    Args:
+        particles (list): List of particles
+        weights (list): List of corresponding weights for each particle.
+    
+    Returns:
+        list: A new set of resampled particles.
+    """
+
+    #check if self.particle_weights is populated
+    if not weights:
+        return particles #nothing to do but wait for more info
+        #raise ValueError("Particle weights are not populated.")
+    
+    #convert the particle weights dictionary to a list of float values for np.random.choice
+    weights_flt = list(weights.values())
+
+    total_weight = sum(weights_flt)
+    if total_weight > 0:
+        weights_flt = [w / total_weight for w in weights_flt]  #Normalize weights so they sum to 1
+    else:
+        #If weights are all zero or there's some issue, use uniform weights
+        weights_flt = [1.0 / num_part] * num_part
+    
+    # Resample particles based on their weights
+    #np.random.choice(pick values from 0-299, 300 values, with replacement, with these weights)
+    resampled_indices = np.random.choice(len(particles.markers), size=num_part, replace=True, p=weights_flt)
+    
+    resampled_particles = MarkerArray()
+    
+    #Use the resampled indices to fetch the actual particles and add them to the new MarkerArray
+    for i in resampled_indices:
+        resampled_particles.markers.append(particles.markers[i])
+    
+    return resampled_particles
+
 
 
 class ParticleFilterLocalization(Node):
@@ -113,6 +152,7 @@ class ParticleFilterLocalization(Node):
         self.particle_weights = {}
         self.map_data = OccupancyGrid()
         self.last_sensor_value = 0
+        self.init_particles_bool = False
         # Subscribers
         self.map_subscriber = self.create_subscription(OccupancyGrid, '/floor', self.map_callback, 10)
         self.floor_sensor_subscriber = self.create_subscription(UInt8, '/floor_sensor', self.floor_sensor_callback, 10)
@@ -140,7 +180,7 @@ class ParticleFilterLocalization(Node):
         self.resolution = msg.info.resolution
 
         if len(self.particles.markers) == 0:
-            self.map_data = msg #send map_data?
+            self.map_data = msg
             self.particles = self.init_particles()
 
     
@@ -150,33 +190,17 @@ class ParticleFilterLocalization(Node):
         #convert UInt8 to int before passing
         sensor_value = floor_sensor_msg.data
 
-        #update last_sensor_value so that 
-        # forward proj. callback (motion_update) has a value for weight assignment
+        #store last_sensor_value so that the
+        #   forward projection callback (motion_update) has a value for weight assignment
         self.last_sensor_value = sensor_value
+
+        #particle set replaced with resampled set
+        if(self.init_particles_bool): # wait until initialization
+            self.particles = resample_particles(self.particles, self.particle_weights, self.num_particles)
+            #self.get_logger().info(f"first resampled particle: {self.particles.markers[0]}")
         
-
-
-
-
-    def resample_particles(particles, weights):
-        """
-        Resamples particles with replacement based on their weights.
-
-        Args:
-            particles (list): List of particles (e.g., states or positions).
-            weights (list): List of corresponding weights for each particle.
         
-        Returns:
-            list: A new set of resampled particles.
-        """
-
-        # Resample particles based on their weights
-        resampled_particles = np.random.choice(particles, size=len(particles), replace=True, p=weights)
-
-        #convert numpy array back to a list
-        return list(resampled_particles)
-
-
+        
 
     def motion_update_callback(self, cmd_vel_msg):
         for particle in self.particles.markers:
@@ -210,14 +234,9 @@ class ParticleFilterLocalization(Node):
                 #probability of being wrong, inverse (i.e. [1 - 0.6] = 0.4)
                 self.particle_weights[particle.id] = 1 - probability 
 
-        # Normalize weights
-        total_weight = sum(self.particle_weights)
-        for particle in self.particles.markers:
-            self.particle_weights[particle.id] /= total_weight
 
     #NOTE: there's a chance we don't do this every compass update, but I think this is right
     def compass_callback(self, msg):
-        self.get_logger().info(f'COMP ASS MESSAGE: {msg}')
         for particle in self.particles.markers:
             particle.pose.orientation = quaternion_from_euler(msg.data)
         
@@ -273,7 +292,7 @@ class ParticleFilterLocalization(Node):
             particle.id = i
             particle.type = Marker.SPHERE
             particle.action = Marker.ADD
-            self.particle_weights[particle.id] = 1.0 # each starts with initial weight of 1
+            self.particle_weights[particle.id] = 0 # each starts with initial weight of 0
 
             # Random position
             particle.pose.position.x = uniform(0, self.map_width) * self.resolution
@@ -297,6 +316,7 @@ class ParticleFilterLocalization(Node):
             particle_list.markers.append(particle)
 
         self.get_logger().info(f"Initialized {len(particle_list.markers)} particles...")
+        self.init_particles_bool = True
         return particle_list
     
     def publish_particles(self):
