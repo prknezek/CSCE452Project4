@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'occupancy_grid_publisher = project4.occupancy_grid_publisher:main',
             'particle_filter_localization = project4.particle_filter_localization:main',
+            'Bagger = project4.bagger:main',
         ],
     },
 )

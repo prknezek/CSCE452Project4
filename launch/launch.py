@@ -42,6 +42,14 @@ def generate_launch_description():
             ]
             )
 
+    bagger = Node(package='project4',
+                  namespace='Bagger',
+                  executable="Bagger",
+                  name="Bagger",
+                  parameters=[{
+                      "bag_out" : LaunchConfiguration('bag_out')
+                      }]
+                  )
     # Return the launch description
     return LaunchDescription([
         map_file_arg,
@@ -49,5 +57,6 @@ def generate_launch_description():
         playback_speed,
         occupancy_grid_publisher_node,
         particle_filter_localization_node,
-        play_bag
+        play_bag,
+        bagger
     ])
