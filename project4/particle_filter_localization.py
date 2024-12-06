@@ -59,9 +59,9 @@ def classify_light_dark(value):
 
     #If not in overlap, classify based on ranges
     elif light_range[0] <= value <= light_range[1]:
-        return True, 0.9
+        return True, 0.8
     elif dark_range[0] <= value <= dark_range[1]:
-        return False, 0.9
+        return False, 0.8
     else:
         return "unknown", 0.0  #NaN and whatnot
 
@@ -143,15 +143,14 @@ def resample_particles(particles, weights, num_part):
     
     return resampled_particles
 
-
-
 class ParticleFilterLocalization(Node):
     def __init__(self):
         super().__init__('particle_filter_localization')
 
         # Map and particle initialization
         self.map_width, self.map_height, self.resolution = 0, 0, 0
-        self.num_particles = 2000
+        self.num_particles = 3000
+        self.particle_spread = 0.23
         self.particles = MarkerArray()
         self.particle_weights = {}
         self.map_data = OccupancyGrid()
@@ -230,8 +229,8 @@ class ParticleFilterLocalization(Node):
             yaw = euler_from_quaternion(particle.pose.orientation)
 
             # Add noise and compute local velocities
-            dx_local = duration * (cmd_vel_msg.linear.x + uniform(-0.1, 0.1))
-            dy_local = duration * (cmd_vel_msg.linear.y + uniform(-0.1, 0.1))
+            dx_local = duration * (cmd_vel_msg.linear.x + uniform(-self.particle_spread, self.particle_spread))
+            dy_local = duration * (cmd_vel_msg.linear.y + uniform(-self.particle_spread, self.particle_spread))
             dtheta = duration * (cmd_vel_msg.angular.z + uniform(-0.01, 0.01))
 
             # Transform to global frame
@@ -296,7 +295,6 @@ class ParticleFilterLocalization(Node):
         for particle in self.particles.markers:
             particle.pose.orientation = quaternion_from_euler(msg.data)
         
-
     #NOTE: if this isn't working well, we can replace it with weight avg. of particles
     #calculates most likely robot position and publishes it to map & topic
     def update_robot_guess(self):
