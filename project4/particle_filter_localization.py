@@ -9,6 +9,7 @@ import math
 from example_interfaces.msg import Float32
 from example_interfaces.msg import UInt8
 import numpy as np
+import random
 
 def quaternion_from_euler(yaw, pitch=0, roll=0):
     """
@@ -43,8 +44,8 @@ def classify_light_dark(value):
                probability: Probability of the classification.
     """
     #ranges for light, dark, overlap (min, max)
-    light_range = (101, 135)
-    dark_range = (122, 155)
+    light_range = (101, 130)
+    dark_range = (121, 155)
     overlap = (dark_range[0], light_range[1]) #makes more sense visually on a line chart
     
 
@@ -118,6 +119,8 @@ def resample_particles(particles, weights, num_part):
         return particles #nothing to do but wait for more info
         #raise ValueError("Particle weights are not populated.")
     
+    if random.uniform(0,1) > .5:
+        return particles
     #convert the particle weights dictionary to a list of float values for np.random.choice
     weights_flt = list(weights.values())
 
@@ -149,7 +152,7 @@ class ParticleFilterLocalization(Node):
 
         # Map and particle initialization
         self.map_width, self.map_height, self.resolution = 0, 0, 0
-        self.num_particles = 3000
+        self.num_particles = 2000
         self.particle_spread = 0.23
         self.particles = MarkerArray()
         self.particle_weights = {}
@@ -173,7 +176,7 @@ class ParticleFilterLocalization(Node):
         self.robot_marker = Marker()
         self.robot_marker_publisher = self.create_publisher(Marker, '/robot_marker', 10)
         self.est_pose_publisher = self.create_publisher(Pose2D, '/estimated_pose', 10)
-        self.est_pose_timer = self.create_timer(0.5, self.update_robot_guess)
+        self.est_pose_timer = self.create_timer(2.0, self.update_robot_guess)
         self.init_robot_marker()
 
         #DEBUG
@@ -298,25 +301,49 @@ class ParticleFilterLocalization(Node):
     #NOTE: if this isn't working well, we can replace it with weight avg. of particles
     #calculates most likely robot position and publishes it to map & topic
     def update_robot_guess(self):
-        best_particle = None
         best_pose = Pose2D()
-        max_weight = 0.0
+        count = 0
         for i, particle in enumerate(self.particles.markers):
             curr_weight = self.particle_weights[i]
-            if curr_weight > max_weight:
-                max_weight = curr_weight
-                best_particle = particle
-                self.robot_index = i
+            best_pose.x += particle.pose.position.x
+            best_pose.y += particle.pose.position.y
+            best_pose.theta += euler_from_quaternion(particle.pose.orientation)
+            count += 1
 
-        if not best_particle:
+        
+        if count == 0 :
             return
 
-        ppose = best_particle.pose
-        best_pose.x = ppose.position.x
-        best_pose.y = ppose.position.y
-        eulers = euler_from_quaternion(ppose.orientation)
-        best_pose.theta = eulers
-        self.robot_marker.pose = ppose
+        best_pose.x = best_pose.x / count
+        best_pose.y = best_pose.y / count
+        best_pose.theta = best_pose.theta / count
+
+        prior_pose = copy.deepcopy(best_pose)
+        best_pose.x = 0.0
+        best_pose.y = 0.0
+        best_pose.theta = 0.0
+        count = 0
+        scale = 2
+        while count < 10:
+            for i, particle in enumerate(self.particles.markers):
+                if abs(particle.pose.position.x - prior_pose.x) < (scale * self.resolution):
+                    if abs(particle.pose.position.y - prior_pose.y) < (scale * self.resolution):
+                        curr_weight = self.particle_weights[i]  
+                        best_pose.x += particle.pose.position.x
+                        best_pose.y += particle.pose.position.y
+                        best_pose.theta += euler_from_quaternion(particle.pose.orientation)
+                        count += 1
+            scale *= 2
+
+
+        best_pose.x = best_pose.x / count
+        best_pose.y = best_pose.y / count
+        best_pose.theta = best_pose.theta / count
+
+
+        self.robot_marker.pose.position.x = best_pose.x
+        self.robot_marker.pose.position.y = best_pose.y
+        self.robot_marker.pose.orientation = quaternion_from_euler(best_pose.theta)
         self.robot_marker_publisher.publish(self.robot_marker)
         self.est_pose_publisher.publish(best_pose)
 
